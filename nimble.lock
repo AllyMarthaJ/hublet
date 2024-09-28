@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "packages": {
+    "unittest2": {
+      "version": "0.2.2",
+      "vcsRevision": "e96f3215030cbfa13abc2f5827069b6f8ba87e38",
+      "url": "https://github.com/status-im/nim-unittest2",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "6ac7f7ea74df812a25be5d6d36a59d23789eb508"
+      }
+    }
+  },
+  "tasks": {}
+}
