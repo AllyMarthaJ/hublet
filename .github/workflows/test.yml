@@ -24,9 +24,19 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
-
-      # Add nim
-      - uses: iffy/install-nim@v5
+      
+      - name: Cache nimble
+        id: cache-nimble
+        uses: actions/cache@v4
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+          restore-keys: |
+            ${{ runner.os }}-nimble-
+        if: runner.os != 'Windows'
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: 2.0.8
 
       # Runs a single command using the runners shell
       - name: Test hublet
