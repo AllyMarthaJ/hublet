@@ -30,4 +30,4 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Test hublet
-        run: nim r hublet/src/tests/test.nim
+        run: nim r $GITHUB_WORKSPACE/hublet/src/tests/test.nim
