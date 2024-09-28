@@ -43,4 +43,4 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Test hublet
-        run: nim r $GITHUB_WORKSPACE/src/tests/test.nim
+        run: nimble run tests/test

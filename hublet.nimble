@@ -6,7 +6,7 @@ description   = "Automation hub for Ally"
 license       = "GPL-2.0-or-later"
 srcDir        = "src"
 binDir        = "bin"
-bin           = @["hublet"]
+bin           = @["hublet", "tests/test"]
 
 
 # Dependencies
