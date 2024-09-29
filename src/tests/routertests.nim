@@ -54,7 +54,9 @@ suite "routeFor":
                     router.routeFor("/required/spoof").route.get() == routeWithParam
                     router.routeFor("/required/spoof").params == { "param": "spoof" }.toTable()
 
-                    router.routeFor("/required").route.isNone() == true
+                    # We had to create this route in order to build a complete route tree.
+                    # Ensure that omitting the trailing slash returns to this route.
+                    router.routeFor("/required").route.get() == router.rootRoute.routes["required"]
 
                     router.routeFor("/required2/spoof").route.get() == secondRouteParentWithParam
                     router.routeFor("/required2/spoof").params == { "param": "spoof" }.toTable()
@@ -67,16 +69,50 @@ suite "routeFor":
                     router.routeFor("/required/spoof/").route.get() == routeWithParam
                     router.routeFor("/required/spoof/").params == { "param": "spoof" }.toTable()
 
-                    router.routeFor("/required/").route.isNone() == true
+                    # We had to create this route in order to build a complete route tree.
+                    # Ensure that when include the trailing slash, we still get back to this
+                    # route, because the param is not optional.
+                    router.routeFor("/required/").route.get() == router.rootRoute.routes["required"]
 
                     router.routeFor("/required2/spoof/").route.get() == secondRouteParentWithParam
                     router.routeFor("/required2/spoof/").params == { "param": "spoof" }.toTable()
 
                     router.routeFor("/required2/").route.get() == secondRouteParent
                     router.routeFor("/required2/").params == initRouteParams()
-        # setup:
-        #     let router = newRouter()
 
-        #     let routeWithParam = router.addRoute("/required/:param")
-        #     let routeWithOptionalParam = router.addRoute("/optional/:param?")
-        #     let routeWithOptionalParamAndBase = router.addRoute("/base2")
+        suite "with optional parameters":
+            setup:
+                let router = newRouter()
+
+                let routeWithOptionalParam = router.addRoute("/optional/:param?")
+
+                let routeWithBaseAndOptionalParam = router.addRoute("/optional2/:param?")
+                let baseRoute = router.addRoute("/optional2")
+            
+            test "without trailing slash":
+                check:
+                    router.routeFor("/optional/spoof").route.get() == routeWithOptionalParam
+                    router.routeFor("/optional/spoof").params == { "param": "spoof" }.toTable()
+
+                    router.routeFor("/optional").route.get() == routeWithOptionalParam
+                    router.routeFor("/optional").params == initRouteParams()
+
+                    router.routeFor("/optional2/spoof").route.get() == routeWithBaseAndOptionalParam
+                    router.routeFor("/optional2/spoof").params == { "param": "spoof" }.toTable()
+
+                    router.routeFor("/optional2").route.get() == baseRoute
+                    router.routeFor("/optional2").params == initRouteParams()
+
+            test "with trailing slash":
+                check:
+                    router.routeFor("/optional/spoof/").route.get() == routeWithOptionalParam
+                    router.routeFor("/optional/spoof/").params == { "param": "spoof" }.toTable()
+
+                    router.routeFor("/optional/").route.get() == routeWithOptionalParam
+                    router.routeFor("/optional/").params == initRouteParams()
+
+                    router.routeFor("/optional2/spoof/").route.get() == routeWithBaseAndOptionalParam
+                    router.routeFor("/optional2/spoof/").params == { "param": "spoof" }.toTable()
+
+                    router.routeFor("/optional2/").route.get() == baseRoute
+                    router.routeFor("/optional2/").params == initRouteParams()

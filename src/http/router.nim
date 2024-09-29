@@ -104,7 +104,8 @@ proc routeFor*(router: Router, path: string): tuple[route: Option[CompiledRoute]
 
             if not canLookAhead:
                 # We're at the end of the path. 
-                let tempRoute = currentRoute.get().routeFor(pathComponent, params)
+                var tempParams = params # don't poison params.
+                let tempRoute = currentRoute.get().routeFor(pathComponent, tempParams)
                 let isOptional = tempRoute.isSome() and tempRoute.get().isOptional.isSome() and tempRoute.get().isOptional.get()
                 
                 # Only use the following path if it's optional.
