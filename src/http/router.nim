@@ -32,9 +32,18 @@ type
         rootRoute*: CompiledRoute
         middleware*: seq[RequestMiddleware]
 
-    # TODO: Make a raw middleware handler. This only occurs after routing.
-    RequestMiddlewareHandler* = proc(request: RoutedRequest): Future[void] {.async gcsafe.}
-    RequestMiddleware* = proc(request: RoutedRequest, next: RequestMiddlewareHandler): Future[void] {.async gcsafe.}
+    RawRequestCtx = object
+        router: Router 
+        request: Request
+
+    UnroutedMiddlewareHandler* = MiddlewareHandler[RawRequestCtx]
+    UnroutedMiddleware* = Middleware[RawRequestCtx] 
+
+    RequestMiddlewareHandler* = MiddlewareHandler[RoutedRequest]
+    RequestMiddleware* = Middleware[RoutedRequest]
+
+    MiddlewareHandler[CtxT] = proc(ctx: CtxT): Future[void] {.async gcsafe.}
+    Middleware[CtxT] = proc(ctx: CtxT, next: MiddlewareHandler[CtxT]): Future[void] {.async gcsafe.}
 
 proc newRouteParams(): RouteParams = 
     initTable[string, string]()
@@ -181,9 +190,9 @@ proc newRouter*(middleware: seq[RequestMiddleware] = @[]): Router =
         middleware: middleware
     )
 
-proc compileMiddleware*(middleware: seq[RequestMiddleware], requestHandler: RouteHandler): RequestMiddlewareHandler =
-    proc(request: RoutedRequest): Future[void] {.async gcsafe.} =
-        var next: RequestMiddlewareHandler = requestHandler
+proc compileMiddleware*[Ctx](middleware: seq[Middleware[Ctx]], handle: MiddlewareHandler[Ctx]): MiddlewareHandler[Ctx] =
+    proc(request: Ctx): Future[void] {.async gcsafe.} =
+        var next: MiddlewareHandler[Ctx] = handle
 
         for idx in countdown(middleware.len - 1, 0):
             let m = middleware[idx]
@@ -225,7 +234,7 @@ proc handleRequest(router: Router, request: Request): Future[void] {.async gcsaf
         echo &"Request to resource which has no handler. {request.url.path}" 
         await request.respond(Http404, "Not found\n", { "Content-Type": "text/plain" }.newHttpHeaders())
         return
-    else:
+    else: 
         let completeHandler = compileMiddleware(router.middleware, handler.get())
 
         await completeHandler(newRoutedRequest(request, params))
