@@ -1,11 +1,11 @@
 import asyncdispatch, asynchttpserver, std/tables, options, strformat, asyncdispatch, sugar
 
-import ../http/router
+import ../http/router, ../http/middleware
 
 let get: RouteHandler = 
-    proc (req: Request, params: RouteParams) {.async gcsafe.} =
-        let param = params["param"]
-        await req.respond(Http200, &"Hello,!\n", { "Content-Type": "text/plain" }.newHttpHeaders())
+    proc (req: RoutedRequest) {.async gcsafe.} =
+        let param = req.params["param"]
+        await req.request.respond(Http200, &"Hello, {param}!\n", { "Content-Type": "text/plain" }.newHttpHeaders())
 
 proc registerHelloWorld*(router: Router) =
     discard router

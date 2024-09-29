@@ -11,10 +11,14 @@ import std/deques
 import marshal 
 
 type 
-    RouteParams* = 
-        Table[string, string]
+    RouteParams* = Table[string, string]
+
+    RoutedRequest* = ref object of RootObj
+        request*: Request
+        params*: RouteParams 
+
     RouteHandler* = 
-        proc (request: Request, params: RouteParams): Future[void] {.async gcsafe.}
+        proc (request: RoutedRequest): Future[void] {.async gcsafe.}
 
     CompiledRoute* = ref object of RootObj
         pathComponent*: string
@@ -26,9 +30,20 @@ type
     
     Router* = ref object of RootObj
         rootRoute*: CompiledRoute
+        middleware*: seq[RequestMiddleware]
 
-proc initRouteParams*(): RouteParams = 
+    # TODO: Make a raw middleware handler. This only occurs after routing.
+    RequestMiddlewareHandler* = proc(request: RoutedRequest): Future[void] {.async gcsafe.}
+    RequestMiddleware* = proc(request: RoutedRequest, next: RequestMiddlewareHandler): Future[void] {.async gcsafe.}
+
+proc newRouteParams(): RouteParams = 
     initTable[string, string]()
+
+proc newRoutedRequest(request: Request, routeParams: RouteParams): RoutedRequest = 
+    RoutedRequest(
+        request: request,
+        params: routeParams
+    )
 
 proc toPathComponents(path: string, shouldStrip: bool = false): Deque[string] = 
     var newPath = path
@@ -90,10 +105,10 @@ proc routeFor*(router: Router, path: string): tuple[route: Option[CompiledRoute]
     discard pathComponents.popFirst()
 
     if pathComponents[0] == "":
-        return (route: some(router.rootRoute), params: initRouteParams())
+        return (route: some(router.rootRoute), params: newRouteParams())
 
     var currentRoute = some(router.rootRoute)
-    var params = initRouteParams()
+    var params = newRouteParams()
 
     while pathComponents.len > 0 and currentRoute.isSome():
         let pathComponent = pathComponents.popFirst()
@@ -160,10 +175,23 @@ proc addRoute*(router: Router, path: string): CompiledRoute =
     # to avoid creating a route with an empty path component.
     router.rootRoute.addRoute(path.strip(true, false, { '/' }))
 
-proc newRouter*(): Router = 
+proc newRouter*(middleware: seq[RequestMiddleware] = @[]): Router = 
     Router(
-        rootRoute: "".toCompiledRoute()
+        rootRoute: "".toCompiledRoute(),
+        middleware: middleware
     )
+
+proc compileMiddleware*(middleware: seq[RequestMiddleware], requestHandler: RouteHandler): RequestMiddlewareHandler =
+    proc(request: RoutedRequest): Future[void] {.async gcsafe.} =
+        var next: RequestMiddlewareHandler = requestHandler
+
+        for idx in countdown(middleware.len - 1, 0):
+            let m = middleware[idx]
+            let currentNext = next
+            next = proc(request: RoutedRequest): Future[void] {.async gcsafe.} =
+                await m(request, currentNext)
+
+        await next(request)
 
 proc handleRequest(router: Router, request: Request): Future[void] {.async gcsafe.} =
     let (maybeRoute, params) = router.routeFor(request.url.path)
@@ -198,7 +226,9 @@ proc handleRequest(router: Router, request: Request): Future[void] {.async gcsaf
         await request.respond(Http404, "Not found\n", { "Content-Type": "text/plain" }.newHttpHeaders())
         return
     else:
-        await handler.get()(request, params)
+        let completeHandler = compileMiddleware(router.middleware, handler.get())
+
+        await completeHandler(newRoutedRequest(request, params))
 
 proc curriedHandleRequest*(router: Router): proc (request: Request): Future[void] {.closure gcsafe.} =
     proc (request: Request): Future[void] {.closure gcsafe.} =

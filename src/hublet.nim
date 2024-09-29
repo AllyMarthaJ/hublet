@@ -1,6 +1,6 @@
 import std/asynchttpserver
 import std/asyncdispatch
-import http/router
+import http/router, http/middleware
 
 import apis/helloworld
 
@@ -32,9 +32,8 @@ proc main {.async.} =
     let port = server.getPort
     echo "Listening on port ", $port.uint16
 
-    let router = newRouter()
+    let router = newRouter(@[makeLogMiddleware()])
     router.registerHelloWorld()
-
 
     while true:
         if server.shouldAcceptRequest():
